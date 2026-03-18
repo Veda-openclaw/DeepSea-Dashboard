@@ -99,12 +99,23 @@ class TestOceanApiDataConcurrency:
         monkeypatch.setattr(svc, "_fetch_ocean_api", counting_fetch)
         OceanApiClientMixin.get_ocean_api_data.cache_clear()
 
-        svc.get_ocean_api_data()
+        result1 = svc.get_ocean_api_data()
         first_count = call_count
+        assert first_count > 0, "First call should have made fetch requests"
 
-        svc.get_ocean_api_data()
-        # No additional calls should have been made
-        assert call_count == first_count
+        # Verify cache is populated before testing the second call
+        assert OceanApiClientMixin.get_ocean_api_data.cache_size() > 0, \
+            "Cache should be populated after first call"
+
+        result2 = svc.get_ocean_api_data()
+        # No additional calls should have been made — result served from cache
+        assert call_count == first_count, (
+            f"Expected cached second call (no new fetches), but call_count went "
+            f"from {first_count} to {call_count}. Cache size: "
+            f"{OceanApiClientMixin.get_ocean_api_data.cache_size()}"
+        )
+        # Both calls should return the same cached object
+        assert result1 is result2, "Cached call should return the exact same object"
 
 
 # ---------------------------------------------------------------------------
